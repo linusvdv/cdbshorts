@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <iostream>
 #include <map>
+#include <queue>
+#include <set>
+#include <stack>
 
 #include "external/chess.hpp"
 using namespace chess;
@@ -111,7 +114,7 @@ int main(int argc, char **argv) {
 
     // fen
     std::string fen;
-    fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq -"; // Startpos
+    fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"; // Startpos
     if (argc == 2) {
         fen = argv[1];
     }
@@ -129,15 +132,52 @@ int main(int argc, char **argv) {
     uint64_t scc_cnt = SCC(tot_pos);
     std::cout << "Total number of components: " << scc_cnt << std::endl;
 
-
-    std::vector<Board> representitive_board(scc_cnt);
+    std::vector<std::set<uint64_t>> scc_graph;
+    std::vector<std::set<uint64_t>> scc_rev_graph;
+    scc_graph.assign(scc_cnt, {});
+    scc_rev_graph.assign(scc_cnt, {});
     for (auto pti : pos_to_idx) {
-        representitive_board[pti.second] = Board::Compact::decode(pti.first);
+        for (auto next_pos : graph[pos_to_idx[pti.first]]) {
+            scc_graph[group[pos_to_idx[pti.first]]].insert(group[next_pos.first]);
+            scc_rev_graph[group[next_pos.first]].insert(group[pos_to_idx[pti.first]]);
+        }
     }
 
-    for (uint64_t i = 0; i < representitive_board.size(); i++) {
-        std::cout << "component " << i << ": " << representitive_board[i].getFen(false) << std::endl;
+    std::vector<uint64_t> scc_num_edges(scc_cnt);
+    std::queue<uint64_t> leaf_idx;
+    for (uint64_t i = 0; i < scc_cnt; i++) {
+        scc_num_edges[i] = scc_graph[i].size();
+        if (scc_num_edges[i] == 0) {
+            leaf_idx.push(i);
+        }
     }
+
+    // get order
+    std::stack<uint64_t> order_idx;
+    while (!leaf_idx.empty()) {
+        uint64_t cur = leaf_idx.front();
+        leaf_idx.pop();
+        order_idx.push(cur);
+        for (uint64_t next : scc_rev_graph[cur]) {
+            scc_num_edges[next]--;
+            if (scc_num_edges[next] == 0) {
+                leaf_idx.push(next);
+            }
+        }
+    }
+
+    std::vector<uint64_t> max_depth(scc_cnt, 0);
+    uint64_t max_overall = 0;
+    while (!order_idx.empty()) {
+        uint64_t cur = order_idx.top();
+        order_idx.pop();
+        for (uint64_t next : scc_graph[cur]) {
+            max_depth[next] = std::max(max_depth[next], max_depth[cur]+1);
+            max_overall = std::max(max_overall, max_depth[next]);
+        }
+    }
+
+    std::cout << "max_depth scc: " << max_overall << std::endl;
 
     cdbdirect_finalize(handle);
     return 0;
