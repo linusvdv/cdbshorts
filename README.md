@@ -32,6 +32,10 @@ find the fens that are PV endpoints no longer in cdb
 
 find fens that are not in cdb, but are the result of a best move from a cdb position with an edgy (close to +- 100 cp) eval.
 
+### minply
+
+count subtree size and minply distribution in a memory efficient way using a game progress indicator
+
 ## usage
 
 ### building
